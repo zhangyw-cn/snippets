@@ -1,0 +1,18 @@
+#!/bin/sh
+
+SECRET=''
+SERVER_HOST=''
+SERVER_USER=''
+CUR_DIR=$(pwd)
+SPACE_PROJECT_DIR=""
+REMOTE_DIR=""
+
+
+cd ${SPACE_PROJECT_DIR}
+npm run docs:build
+
+sshpass -v -p "${SECRET}" ssh -t ${SERVER_USER}@${SERVER_HOST} "rm -rf ${REMOTE_DIR}/*" && \
+sshpass -v -p "${SECRET}" scp -r ${SPACE_PROJECT_DIR}/.vitepress/dist/* ${SERVER_USER}@${SERVER_HOST}:${REMOTE_DIR}/ && \
+echo "update space success..."
+
+cd ${CUR_DIR}

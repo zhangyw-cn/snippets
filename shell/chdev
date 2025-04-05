@@ -1,0 +1,112 @@
+#!/bin/sh
+
+# 依赖项:
+# gum: go install github.com/charmbracelet/gum@latest
+
+# 配置项
+# 某个以来lib库的目录
+LIB_NAME="lib_name"
+LIB_DIR="/path/to/lib"
+LIB_BRANCHES="master beta"
+
+# 某个服务的目录
+PROJECT_DIR="/path/to/service_name"
+PROJECT_BRANCHES="master beta"
+#--------------------------------------------------
+
+# 保存现场
+CUR_DIR=$(pwd .)
+LIB_TARGET_BRANCH=""
+SERVICE_TARGET_BRANCH=""
+LIB_BRANCH_CHANGED="false"
+SERVICE_BRANCH_CHANGED="false"
+
+SERVICE_BASE_NAME=$(basename ${CUR_DIR})
+
+case "${SERVICE_BASE_NAME}" in
+"core")
+    SERVICE_NAME="core"
+    SERVICE_DIR=${PROJECT_DIR}
+    SERVICE_BRANCHES=${PROJECT_BRANCHES}
+    ;;
+*)
+    echo "no service mathed, exited."
+    exit 1
+    ;;
+esac
+
+cd ${SERVICE_DIR}
+SERVICE_CUR_BRANCH=$(git branch --show-current)
+cd ${CUR_DIR}
+SERVICE_BRANCH=$(gum choose --header "${SERVICE_NAME}当前的分支是${SERVICE_CUR_BRANCH}, 需要切换到分支:" ${SERVICE_BRANCHES})
+
+# 确定服务的分支
+case "${SERVICE_BRANCH}" in
+"")
+    echo "exited."
+    exit 1
+    ;;
+"current")
+    SERVICE_BRANCH=${SERVICE_CUR_BRANCH}
+    ;;
+*)
+    SERVICE_BRANCH_CHANGEG="true"
+    ;;
+esac
+
+
+cd ${LIB_DIR}
+LIB_CUR_BRANCH=$(git branch --show-current)
+cd ${CUR_DIR}
+
+# 确定lib的分支
+LIB_BRANCH=$(gum choose --header "${LIB_NAME}当前的分支是${LIB_CUR_BRANCH}, 需要切换到分支:" ${LIB_BRANCHES})
+case "${LIB_BRANCH}" in
+"")
+    echo "exited"
+    exit 1
+    ;;
+"current")
+    LIB_BRANCHES=${LIB_CUR_BRANCH}
+    ;;
+*)
+    LIB_BRANCH_CHANGED="true"
+    ;;
+esac
+
+
+GO_MOD_TIDY=$(gum choose --header "是否go mod tidy:" "true" "false")
+if [ "${GO_MOD_TIDY}" == "" ]; then
+    echo "exited"
+    exit 1
+fi
+
+
+
+if [ "${LIB_BRANCH_CHANGED}" == "true" ]; then
+    echo "-----------------[${LIB_NAME}] 从分支 ${LIB_CUR_BRANCH} 切换到分支 ${LIB_BRANCH} -----------------"
+    cd ${LIB_DIR} && git checkout ${LIB_BRANCH} && git pull
+fi
+
+if [ "${SERVICE_BRANCH_CHANGEG}" == "true" ]; then
+    echo "-----------------[${SERVICE_NAME}] 从分支 ${SERVICE_CUR_BRANCH} 切换到分支 ${SERVICE_BRANCH} -----------------"
+    cd ${SERVICE_DIR} && git checkout ${SERVICE_BRANCH} && git pull
+fi
+
+if [ "${GO_MOD_TIDY}" == "true" ]; then
+    cd ${SERVICE_DIR} && go mod tidy
+fi
+
+cd ${CUR_DIR}
+
+# 打印出结果
+gum style \
+	--foreground 212 --border-foreground 212 --border double \
+	--align left --margin "1 2" --padding "2 4" \
+	" ${SERVICE_NAME}: ${SERVICE_DIR}" \
+    " branch: ${SERVICE_CUR_BRANCH} -> ${SERVICE_BRANCH}" \
+    "" \
+    " ${LIB_NAME}: ${LIB_DIR}"\
+    " branch: ${LIB_CUR_BRANCH} -> ${LIB_BRANCH}" \
+    "" \
+    " go mod tidy: ${GO_MOD_TIDY}"
